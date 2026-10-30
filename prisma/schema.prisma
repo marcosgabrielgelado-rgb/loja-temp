@@ -1,0 +1,164 @@
+generator client { provider = "prisma-client-js" }
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+}
+model User {
+  id String @id @default(cuid())
+  name String
+  email String @unique
+  passwordHash String
+  role Role @default(CUSTOMER)
+  phone String?
+  cpf String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders Order[]
+  addresses Address[]
+}
+model Address {
+  id String @id @default(cuid())
+  userId String
+  label String?
+  recipient String
+  street String
+  number String
+  complement String?
+  neighborhood String
+  city String
+  state String
+  postalCode String
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+}
+model Category {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  description String?
+  sortOrder Int @default(0)
+  active Boolean @default(true)
+  products Product[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Product {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  sku String @unique
+  description String
+  priceCents Int
+  compareAtPriceCents Int?
+  stock Int @default(0)
+  active Boolean @default(true)
+  featured Boolean @default(false)
+  madeToOrder Boolean @default(false)
+  productionDays Int @default(0)
+  material String?
+  dimensions String?
+  weightGrams Int?
+  images Json
+  categoryId String?
+  category Category? @relation(fields:[categoryId], references:[id], onDelete:SetNull)
+  orderItems OrderItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([active, categoryId])
+}
+model Order {
+  id String @id @default(cuid())
+  orderNumber String @unique
+  userId String?
+  customerName String
+  customerEmail String
+  customerPhone String?
+  shippingAddress Json
+  status OrderStatus @default(PENDING_PAYMENT)
+  subtotalCents Int
+  shippingCents Int @default(0)
+  discountCents Int @default(0)
+  totalCents Int
+  shippingMethod String?
+  trackingCode String?
+  paymentProvider String?
+  providerPaymentId String? @unique
+  idempotencyKey String? @unique
+  paidAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User? @relation(fields:[userId], references:[id], onDelete:SetNull)
+  items OrderItem[]
+  payments Payment[]
+  @@index([status, createdAt])
+}
+model OrderItem {
+  id String @id @default(cuid())
+  orderId String
+  productId String?
+  productName String
+  sku String
+  quantity Int
+  unitPriceCents Int
+  product Product? @relation(fields:[productId], references:[id], onDelete:SetNull)
+  order Order @relation(fields:[orderId], references:[id], onDelete:Cascade)
+}
+model Payment {
+  id String @id @default(cuid())
+  orderId String
+  provider String
+  providerPaymentId String? @unique
+  status PaymentStatus @default(PENDING)
+  amountCents Int
+  rawStatus String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order Order @relation(fields:[orderId], references:[id], onDelete:Cascade)
+}
+model Coupon {
+  id String @id @default(cuid())
+  code String @unique
+  percentOff Int?
+  amountOffCents Int?
+  minSubtotalCents Int @default(0)
+  maxUses Int?
+  uses Int @default(0)
+  active Boolean @default(true)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+}
+model StoreSetting {
+  key String @id
+  value Json
+  updatedAt DateTime @updatedAt
+}
+model AuditLog {
+  id String @id @default(cuid())
+  actorUserId String?
+  action String
+  entity String
+  entityId String?
+  details Json?
+  createdAt DateTime @default(now())
+  @@index([entity, entityId, createdAt])
+}
